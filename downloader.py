@@ -54,7 +54,7 @@ def main():
     # get current directory
     current_dir = os.getcwd()
     
-    REST_url = "http://localhost:8090/tasks/create/summit"
+    REST_url = "http://localhost:8090/tasks/create/file"
     header = {"Authorization": "Bearer UdC5HKZB1aruy8e-Giv_fg"}  # USE YOUR API token HERE
     file = os.path.join(current_dir, 'upload')
     output = os.path.join(current_dir, 'cuckoo_reports')
@@ -73,17 +73,15 @@ def main():
         os.mkdir(args.output)
 
     task_file = os.path.join(args.output, "task_ids.txt")
+    task_ids = []
 
     allFiles = os.listdir(args.file)
     for folder in allFiles:
-        print(f"current file:{folder}\n")
         folder_path = os.path.join(args.file, folder)
+        print(f"curr folder path{folder_path}")    
         if not os.path.isdir(folder_path):
             continue
 
-        task_ids = []
-        
-        print(f"\nprocessing folder: {folder}")
         filenames = os.listdir(folder_path)
         for filename in filenames:
             file_path = os.path.join(folder_path, filename)
@@ -94,8 +92,8 @@ def main():
                     
                 try:
                     with open(file_path, "rb") as file_in_folder:
-                        files = {"file": (filename, file_in_folder)}
-                        r = requests.post(args.url, headers=header, files=files)
+                        files = [("file", (filename, file_in_folder))]
+                        r = requests.post(args.url, files=files, headers=header)
                         r.raise_for_status()
                         task_id = r.json()["task_id"]
                         task_ids.append((task_id, filename))
