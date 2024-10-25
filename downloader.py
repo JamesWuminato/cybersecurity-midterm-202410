@@ -5,6 +5,17 @@ import time
 import json
 from pathlib import Path
 
+def get_task_status(url, task_id, headers):
+    """檢查任務狀態"""
+    status_url = f"{url.rstrip('/')}/tasks/view/{task_id}"
+    try:
+        r = requests.get(status_url, headers=headers)
+        r.raise_for_status()
+        return r.json()["task"]["status"]
+    except Exception as e:
+        print(f"檢查任務 {task_id} 狀態時發生錯誤: {str(e)}")
+        return "error"
+
 def download_analysis_files(url, task_id, filename, output_folder, headers):
     """整合下載分析報告和PCAP檔案"""
     # 準備檔案路徑，使用原始檔名作為基礎
