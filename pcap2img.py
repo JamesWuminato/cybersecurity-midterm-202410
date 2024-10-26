@@ -2,11 +2,14 @@ from scapy.all import *
 from scapy.layers.inet import IP, TCP, UDP
 import numpy as np
 from PIL import Image
+from pathlib import Path
 import os
+import argparse
 import hashlib
 from collections import defaultdict
 
 def SessionAll(pcap_path): #Tunring the pcap file into Session All format
+    print(f"pcap_path now: {pcap_path}")
     packets = rdpcap(pcap_path)
 
     seen_packets_hash = set()
@@ -24,6 +27,10 @@ def SessionAll(pcap_path): #Tunring the pcap file into Session All format
             continue 
         seen_packets_hash.add(data_hash) #else add new hash into set
 
+        src_port = None
+        dst_port = None
+        proto = None
+
         if TCP in packet:
             proto = "TCP"
             src_port = packet[TCP].sport
@@ -33,20 +40,22 @@ def SessionAll(pcap_path): #Tunring the pcap file into Session All format
             src_port = packet[UDP].sport
             dst_port = packet[UDP].dport
 
+        if src_port is not None and dst_port is not None and proto is not None:
             endpoints = sorted([ #use sorting to make sure that there won't have duplicate sessions
                 (ip.src, src_port),
                 (ip.dst, dst_port)
             ])        
-        # split packet into sessions
-        session_key = f"{endpoints[0][0]}:{endpoints[0][1]}-{endpoints[1][0]}:{endpoints[1][1]}-{proto}"
-        sessions[session_key].extend(data)
+            # split packet into sessions
+            session_key = f"{endpoints[0][0]}:{endpoints[0][1]}-{endpoints[1][0]}:{endpoints[1][1]}-{proto}"
+            sessions[session_key].extend(data)
     
     return sessions #This will return a dict whose key was"src_ip:src_port-dst_ip:dst:port"
 
 
 def Session_to_img(sessions):
-    for (key, data) in enumerate(sessions.items()):
+    for key,(seesion_key, data) in enumerate(sessions.items()):
         byte_len = len(data)
+        data = bytes(data)
         if byte_len > 784:
             byte_data = data[:784] #if length is longer than 784 bytes, just discard it
         else:
@@ -57,18 +66,26 @@ def Session_to_img(sessions):
     return img
 
 
-parser = argparse.ArgumentParser(description="convert pcap to img(session+all)")
+parser = argparse.ArgumentParser()
 
 parser.add_argument('--pcap', type=str, help='directory of your pcap file', required=True)
 parser.add_argument('--output', type=str, help='output directory of converted img', default='pcap_img')
 args = parser.parse_args()
 
 def main():
-    args.output.mkdir(parent=True, exist_ok = True)
-    pcap_dir = args.pcap
+    output_path = Path(args.output)
+    if not os.path.exists(output_path):
+        os.mkdir(output_path)
+    pcap_dir = Path(args.pcap)
     try:
         for pcap in os.listdir(pcap_dir):
-            sessions = SessionAll(pcap)
+            print(f"file now: {pcap}")
+            if not pcap.lower().endswith('.pcap'):
+                print(f"Skip non-pcap file {pcap}")
+                continue
+            
+            pcap_path = os.path.join(pcap_dir, pcap)
+            sessions = SessionAll(pcap_path)
             img = Session_to_img(sessions)
             img_name = os.path.splitext(pcap)[0] + '.png'
             img_path = os.path.join(args.output, f"pcap_{img_name}")
